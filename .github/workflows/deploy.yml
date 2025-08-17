@@ -8,6 +8,7 @@ on:
 
 permissions: 
   contents: read
+  actions: read
 
 concurrency:
   group: api-deploy-${{ github.event.workflow_run.head_branch }}
