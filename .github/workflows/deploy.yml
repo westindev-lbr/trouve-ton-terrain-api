@@ -1,0 +1,87 @@
+name: API Deploy
+
+on:
+  workflow_run:
+    workflows: [ "API CI" ]
+    types: [ completed ]
+    branches: [ develop, master ]
+
+permissions: 
+  contents: read
+
+concurrency:
+  group: api-deploy-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    # On détermine l'environnement cible à partir de la branche
+    outputs:
+      target_env: ${{ steps.pick_env.outputs.target_env }}
+
+    steps:
+      - name: pick env from branch
+        id: pick_env
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          if [ "$BRANCH" = "develop" ]; then
+            echo "target_env=dev" >> $GITHUB_OUTPUT
+          elif [ "$BRANCH" = "master" ]
+            echo "target_env=prod" >> $GITHUB_OUTPUT
+          else
+            echo "Unsupported branch: $BRANCH"; exit 1
+          fi
+
+  deploy_to_target:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: ${{ needs.deploy.outputs.target_env }}
+
+    steps:
+      - name: download artifact from CI run
+        uses: actions/download-artifact@v4
+        with:
+          # Télécharge l'artefact du workflow_run déclencheur
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: api_artifact
+          path: .
+
+      - name: prepare SSH
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add - <<< "${{ secrets.SSH_KEY_VPS }}"
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts 
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: deploy (atomic release + PM2 reload)
+        env:
+          SERVER_IP:    ${{ secrets.SERVER_IP }}
+          SERVER_USER:  ${{ secrets.SERVER_USER }}
+          REMOTE_BASE:  ${{ vars.REMOTE_BASE || '/var/www' }}
+          APP_DIR:      ${{ vars.APP_DIR || 'ttt-api' }}
+          NODE_ENV:     ${{ vars.NODE_ENV || 'production' }}
+        run: | 
+          set -e
+          RELEASES_DIR="$REMOTE_BASE/$APP_DIR/releases"
+          CURRENT_LINK="$REMOTE_BASE/$APP_DIR/current"
+          TS="$(date +%Y%m%d%H%M%S)"
+          TARGET_DIR=$RELEASES_DIR/$TS"
+
+          ssh $SERVER_USER@$SERVER_IP "mkdir -p $TARGET_DIR $RELEASES_DIR && mkdir -p $(dirname $CURRENT_LINK)"
+          scp api_artifact.tgz $SERVER_USER@$SERVER_IP:$TARGET_DIR/
+
+          ssh $SERVER_USER@$SERVER_IP "
+            set -e
+            cd $TARGET_DIR
+            tar -xzf api_artifact.tgz && rm -f api_artifact.tgz
+            npm ci --omit=dev
+            ln -sfn $TARGET_DIR $CURRENT_LINK
+            cd $CURRENT_LINK
+            pm2 startOrReload ecosystem.config.js --env production
+            pm2 save
+         "
