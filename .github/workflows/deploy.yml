@@ -65,12 +65,12 @@ jobs:
           REMOTE_BASE:  ${{ vars.REMOTE_BASE || '/var/www' }}
           APP_DIR:      ${{ vars.APP_DIR || 'ttt-api' }}
           NODE_ENV:     ${{ vars.NODE_ENV || 'production' }}
-        run: | 
+        run: |
           set -e
           RELEASES_DIR="$REMOTE_BASE/$APP_DIR/releases"
           CURRENT_LINK="$REMOTE_BASE/$APP_DIR/current"
           TS="$(date +%Y%m%d%H%M%S)"
-          TARGET_DIR=$RELEASES_DIR/$TS"
+          TARGET_DIR="$RELEASES_DIR/$TS"
 
           ssh $SERVER_USER@$SERVER_IP "mkdir -p $TARGET_DIR $RELEASES_DIR && mkdir -p $(dirname $CURRENT_LINK)"
           scp api_artifact.tgz $SERVER_USER@$SERVER_IP:$TARGET_DIR/
@@ -84,4 +84,4 @@ jobs:
             cd $CURRENT_LINK
             pm2 startOrReload ecosystem.config.js --env production
             pm2 save
-         "
+          "
