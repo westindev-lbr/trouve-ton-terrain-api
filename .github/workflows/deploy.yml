@@ -30,7 +30,7 @@ jobs:
           BRANCH="${{ github.event.workflow_run.head_branch }}"
           if [ "$BRANCH" = "develop" ]; then
             echo "target_env=dev" >> $GITHUB_OUTPUT
-          elif [ "$BRANCH" = "master" ]
+          elif [ "$BRANCH" = "master" ]; then
             echo "target_env=prod" >> $GITHUB_OUTPUT
           else
             echo "Unsupported branch: $BRANCH"; exit 1
