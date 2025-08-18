@@ -51,6 +51,17 @@ jobs:
           name: api_artifact
           path: .
 
+      - name: Debug SSH agent
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add - <<< "${{ secrets.SSH_KEY_VPS }}"
+          ssh-add -l || true
+          # montre les clés chargées (empreintes)
+
+      - name: Probe SSH (no command)
+        run: |
+          ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} true
+
       - name: prepare SSH
         run: |
           eval "$(ssh-agent -s)"
