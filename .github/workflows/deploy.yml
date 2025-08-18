@@ -53,11 +53,17 @@ jobs:
 
       - name: prepare SSH
         run: |
-          eval "$(ssh-agent -s)"
-          ssh-add - <<< "${{ secrets.SSH_KEY_VPS }}"
+          cat > /tmp/id_ci <<'EOF'
+          ${{ secrets.SSH_KEY_VPS }}
+          EOF
+          chmod 600 /tmp/id_ci
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
+
+      - name: probe ssh
+        run: |
+          ssh -i /tmp/id_ci -o IdentitiesOnly=yes -o BatchMode=yes ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} true
 
       - name: deploy (atomic release + PM2 reload)
         env:
@@ -73,10 +79,10 @@ jobs:
           TS="$(date +%Y%m%d%H%M%S)"
           TARGET_DIR="$RELEASES_DIR/$TS"
 
-          ssh $SERVER_USER@$SERVER_IP "mkdir -p $TARGET_DIR $RELEASES_DIR && mkdir -p $(dirname $CURRENT_LINK)"
-          scp api_artifact.tgz $SERVER_USER@$SERVER_IP:$TARGET_DIR/
+          ssh -i /tmp/id_ci -o IdentitiesOnly=yes $SERVER_USER@$SERVER_IP "mkdir -p $TARGET_DIR $RELEASES_DIR && mkdir -p $(dirname $CURRENT_LINK)"
+          scp -i /tmp/id_ci -o IdentitiesOnly=yes api_artifact.tgz $SERVER_USER@$SERVER_IP:$TARGET_DIR/
 
-          ssh $SERVER_USER@$SERVER_IP "
+          ssh -i /tmp/id_ci -o IdentitiesOnly=yes $SERVER_USER@$SERVER_IP "
             set -e
             cd $TARGET_DIR
             tar -xzf api_artifact.tgz && rm -f api_artifact.tgz
