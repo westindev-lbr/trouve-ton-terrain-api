@@ -51,23 +51,12 @@ jobs:
           name: api_artifact
           path: .
 
-      - name: Debug SSH agent
-        run: |
-          eval "$(ssh-agent -s)"
-          ssh-add - <<< "${{ secrets.SSH_KEY_VPS }}"
-          ssh-add -l || true
-          # montre les clés chargées (empreintes)
-
-      - name: Probe SSH (no command)
-        run: |
-          ssh -vvv -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} true
-
       - name: prepare SSH
         run: |
           eval "$(ssh-agent -s)"
           ssh-add - <<< "${{ secrets.SSH_KEY_VPS }}"
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts 
+          ssh-keyscan -H "${{ secrets.SERVER_IP }}" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: deploy (atomic release + PM2 reload)
