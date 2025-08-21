@@ -72,6 +72,7 @@ jobs:
           REMOTE_BASE:  ${{ vars.REMOTE_BASE || '/var/www' }}
           APP_DIR:      ${{ vars.APP_DIR || 'ttt-api' }}
           NODE_ENV:     ${{ vars.NODE_ENV || 'production' }}
+          PM2_CWD:      ${{ vars.PM2_CWD || '/var/www/prod/ttt-api/current' }}
         run: |
           set -e
           RELEASES_DIR="$REMOTE_BASE/$APP_DIR/releases"

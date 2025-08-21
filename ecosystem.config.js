@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'trouve-ton-terrain-api', // nom qui apparaîtra dans pm2 list
       script: 'dist/main.js', // fichier compilé par NestJS
-      cwd: '/var/www/prod/ttt-api/current',
+      cwd: process.env.PM2_CWD,
       instances: 'max', // ou 1 si tu veux un seul process
       exec_mode: 'cluster', // cluster = load balancing multi-cpu
       interpreter: 'node',
