@@ -69,10 +69,10 @@ jobs:
         env:
           SERVER_IP:    ${{ secrets.SERVER_IP }}
           SERVER_USER:  ${{ secrets.SERVER_USER }}
-          REMOTE_BASE:  ${{ vars.REMOTE_BASE || '/var/www' }}
-          APP_DIR:      ${{ vars.APP_DIR || 'ttt-api' }}
-          NODE_ENV:     ${{ vars.NODE_ENV || 'production' }}
-          PM2_CWD:      ${{ vars.PM2_CWD || '/var/www/prod/ttt-api/current' }}
+          REMOTE_BASE:  ${{ vars.REMOTE_BASE }}
+          APP_DIR:      ${{ vars.APP_DIR }}
+          NODE_ENV:     ${{ vars.NODE_ENV }}
+          PM2_CWD:      ${{ vars.PM2_CWD }}
         run: |
           set -e
           RELEASES_DIR="$REMOTE_BASE/$APP_DIR/releases"
@@ -88,9 +88,21 @@ jobs:
             cd $TARGET_DIR
             tar -xzf api_artifact.tgz && rm -f api_artifact.tgz
             npm ci --omit=dev
-            ln -sfn $TARGET_DIR $CURRENT_LINK
-            cd $CURRENT_LINK
+            ln -sfn '$TARGET_DIR' '$CURRENT_LINK'
+
+            # Choix de l'env selon la branche
+            if [ "${{ needs.deploy.outputs.target_env }}" = "dev" ]; then
+              PM2_ENV="development"
+            else
+              PM2_ENV="production"
+            fi
+
+            # === PM2 depuis le symlink ===
+            export PM2_CWD='$CURRENT_LINK'
+            cd \"\$PM2_CWD\"
+
+            # Reset + start pour éviter les chemins figés 
             pm2 delete trouve-ton-terrain-api || true
-            pm2 start ecosystem.config.js --env production --update-env
+            pm2 start ecosystem.config.js --env \"\$PM2_ENV\"
             pm2 save
           "
